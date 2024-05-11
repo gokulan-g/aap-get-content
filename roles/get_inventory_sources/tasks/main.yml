@@ -1,0 +1,114 @@
+---
+# tasks file for get_inventory_sources
+- name: init list_temp_api_response
+  set_fact:
+    list_temp_api_response: []
+    
+- block:
+    - name: include get_individual_inventory_source.yml for inventory_sources
+      include_tasks: get_individual_inventory_source.yml
+      loop: "{{ list_of_inventory_sources }}"
+
+    - name: show results
+      debug:
+        var: list_temp_api_response
+
+    - name: set list_temp_api_response back to list_api_reponse
+      set_fact:
+        list_api_response: "{{ list_temp_api_response }}"
+  when: "'all' not in list_of_inventory_sources"
+
+- block:
+    # - name: set api to get all the inventory_source details from the organization
+    #   set_fact:
+    #     api: /api/v2/organizations/?name={{ user_org | urlencode }}
+  
+    # - name: include get_aap_api_reponse role to fetch api details
+    #   include_role: 
+    #     name: get_aap_api_response
+
+    - name: set api to get all the inventory_source details
+      set_fact:
+        api: /api/v2/inventory_sources
+  
+    - name: include get_aap_api_reponse role to fetch api details
+      include_role: 
+        name: get_aap_api_response
+  when: "'all' in list_of_inventory_sources"
+
+- name: assign the list_api_response to list_api_details_inventory_sources
+  set_fact:
+    list_api_details_inventory_sources: "{{ list_api_response }}"
+
+- debug:
+    var: list_api_details_inventory_sources | length
+
+- name: Get survey variables for inventory_sources
+  include_tasks: extract_inventory_source_details.yml
+  loop: "{{ list_api_details_inventory_sources }}"
+
+- name: print invalid inventory_source names
+  debug:
+    var: list_invalid_inventory_sources
+  when: list_invalid_inventory_sources is defined and list_invalid_inventory_sources | length > 0
+
+- name: Write inventory_source details to YAML file
+  template:
+    src: inventory_source_details.yml.j2
+    dest: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_inventory_source_details.yml"
+  when: (generate_yml_file and inventory_source_list) | length > 0 and (append_or_create == 'create')
+
+
+- name: Append inventory_source details to YAML file
+  block:
+    - name: Append inventory_source details to YAML file
+      template:
+        src: inventory_source_details.yml.j2
+        dest: "{{ playbook_dir }}/temp_inventory_source_details.yml"
+
+    - name: Read old YAML file content
+      include_vars:
+        file: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_inventory_source_details.yml"
+        name: old_inventory_source_yaml
+      ignore_errors: true
+
+    - name: print the old list
+      debug:
+        var: old_inventory_source_yaml
+      when: old_inventory_source_yaml is defined
+
+    - name: Read new temporary YAML file content
+      include_vars:
+        file: "{{ playbook_dir }}/temp_inventory_source_details.yml"
+        name: new_temp_inventory_source_yaml
+
+    - name: print the newly fetched list
+      debug:
+        var: new_temp_inventory_source_yaml
+
+    - name: Compare old_inventory_source_yaml with new_temp_inventory_source_yaml
+      set_fact:
+        updated_inventory_source_yaml: "{{ (new_temp_inventory_source_yaml.controller_inventory_sources) | union(old_inventory_source_yaml.controller_inventory_sources ) | unique(attribute='name') }}"
+      when: old_inventory_source_yaml is defined and old_inventory_source_yaml.controller_inventory_sources is defined
+
+    - name: Assign the updated inventory_source list
+      set_fact:
+        inventory_source_list: "{{ updated_inventory_source_yaml }}"
+      when: old_inventory_source_yaml is defined and old_inventory_source_yaml.controller_inventory_sources is defined
+
+    - name: Assign the new inventory_source list
+      set_fact:
+        inventory_source_list: "{{ new_temp_inventory_source_yaml.controller_inventory_sources }}"
+      when: old_inventory_source_yaml is not defined and old_inventory_source_yaml.controller_inventory_sources is not defined
+
+    - name: show the inventory_source list
+      debug:
+        var: inventory_source_list
+  
+    - name: Write inventory_source details to YAML file
+      template:
+        src: append_inventory_sources.yml.j2
+        dest: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_inventory_source_details.yml"
+
+  when: (generate_yml_file and inventory_source_list) | length > 0 and (append_or_create == 'append')  
+

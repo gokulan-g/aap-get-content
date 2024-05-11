@@ -1,0 +1,114 @@
+---
+# tasks file for get_notification_templates
+- name: init list_temp_api_response
+  set_fact:
+    list_temp_api_response: []
+    
+- block:
+    - name: include get_individual_notification_template.yml for notification_templates
+      include_tasks: get_individual_notification_template.yml
+      loop: "{{ list_of_notification_templates }}"
+
+    - name: show results
+      debug:
+        var: list_temp_api_response
+
+    - name: set list_temp_api_response back to list_api_reponse
+      set_fact:
+        list_api_response: "{{ list_temp_api_response }}"
+  when: "'all' not in list_of_notification_templates"
+
+- block:
+    - name: set api to get all the notification_template details from the organization
+      set_fact:
+        api: /api/v2/organizations/?name={{ user_org | urlencode }}
+  
+    - name: include get_aap_api_reponse role to fetch api details
+      include_role: 
+        name: get_aap_api_response
+
+    - name: set api to get all the notification_template details
+      set_fact:
+        api: "{{ list_api_response[0].related.notification_templates }}"
+  
+    - name: include get_aap_api_reponse role to fetch api details
+      include_role: 
+        name: get_aap_api_response
+  when: "'all' in list_of_notification_templates"
+
+- name: assign the list_api_response to list_api_details_notification_templates
+  set_fact:
+    list_api_details_notification_templates: "{{ list_api_response }}"
+
+- debug:
+    var: list_api_details_notification_templates | length
+
+- name: Get survey variables for notification_templates
+  include_tasks: extract_notification_template_details.yml
+  loop: "{{ list_api_details_notification_templates }}"
+
+- name: print invalid notification_template names
+  debug:
+    var: list_invalid_notification_templates
+  when: list_invalid_notification_templates is defined and list_invalid_notification_templates | length > 0
+
+- name: Write notification_template details to YAML file
+  template:
+    src: notification_template_details.yml.j2
+    dest: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_notification_template_details.yml"
+  when: (generate_yml_file and notification_template_list) | length > 0 #and (append_or_create == 'create')
+
+
+# - name: Append notification_template details to YAML file
+#   block:
+#     - name: Append notification_template details to YAML file
+#       template:
+#         src: notification_template_details.yml.j2
+#         dest: "{{ playbook_dir }}/temp_notification_template_details.yml"
+
+#     - name: Read old YAML file content
+#       include_vars:
+#         file: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_notification_template_details.yml"
+#         name: old_notification_template_yaml
+#       ignore_errors: true
+
+#     - name: print the old list
+#       debug:
+#         var: old_notification_template_yaml
+#       when: old_notification_template_yaml is defined
+
+#     - name: Read new temporary YAML file content
+#       include_vars:
+#         file: "{{ playbook_dir }}/temp_notification_template_details.yml"
+#         name: new_temp_notification_template_yaml
+
+#     - name: print the newly fetched list
+#       debug:
+#         var: new_temp_notification_template_yaml
+
+#     - name: Compare old_notification_template_yaml with new_temp_notification_template_yaml
+#       set_fact:
+#         updated_notification_template_yaml: "{{ (new_temp_notification_template_yaml.controller_notifications) | union(old_notification_template_yaml.controller_notifications ) | unique(attribute='name') }}"
+#       when: old_notification_template_yaml is defined and old_notification_template_yaml.controller_notifications is defined and (old_notification_template_yaml.controller_notifications is not none)
+
+#     - name: Assign the updated notification_template list
+#       set_fact:
+#         notification_template_list: "{{ updated_notification_template_yaml }}"
+#       when: old_notification_template_yaml is defined and old_notification_template_yaml.controller_notifications is defined and (old_notification_template_yaml.controller_notifications is not none)
+
+#     - name: Assign the new notification_template list
+#       set_fact:
+#         notification_template_list: "{{ new_temp_notification_template_yaml.controller_notifications }}"
+#       when: (old_notification_template_yaml.controller_notifications is none) or (old_notification_template_yaml is not defined and old_notification_template_yaml.controller_notifications is not defined)
+
+#     - name: show the notification_template list
+#       debug:
+#         var: notification_template_list
+  
+#     - name: Append notification_template details to YAML file
+#       template:
+#         src: append_notification_templates.yml.j2
+#         dest: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_notification_template_details.yml"
+
+#   when: (generate_yml_file and notification_template_list) | length > 0 and (append_or_create == 'append')  
+

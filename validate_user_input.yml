@@ -1,0 +1,119 @@
+- name: validate AAP organization name "{{ user_org }}"
+  include_tasks: validate_organization.yml
+
+- name: include tasks from role to get github user id
+  include_role:
+    name: github
+    tasks_from: get_github_user.yml #github_user_info.json.login
+
+- name: Extract owner and repo from HTTPS link
+  set_fact:
+    owner: "{{ github_https_link | regex_replace('https://github.com/([^/]+)/.*', '\\1') }}"
+    repo: "{{ github_https_link | regex_replace('.*/(.*).git', '\\1') }}"
+    # file_path: "roles_details.yml"
+
+- name: Set Git URL with Dynamic Credentials
+  set_fact:
+    dynamic_git_url: "{{ github_user_info.json.login }}:{{ github_PAT | mandatory }}@{{ github_https_link | replace('https://', '') }}"
+  no_log: true
+
+- name: Clone the Git Repository {{ git_url }}
+  git:
+    repo: "{{ 'https://' ~ dynamic_git_url }}"
+    dest: "{{ playbook_dir }}/{{ repo }}/"
+    version: "{{ git_branch }}"
+    accept_hostkey: yes
+    force: yes
+    clone: yes
+    depth: 1
+    recursive: yes
+  environment:
+    GIT_ASKPASS: /bin/echo
+  no_log: true
+
+- name: Set Git username
+  git_config:
+    name: user.name
+    value: "{{ github_user_info.json.login }}"
+    scope: file
+    file: "{{ playbook_dir }}/{{ repo }}/.git/config"
+
+- name: Set Git email
+  git_config:
+    name: user.email
+    value: "{{ github_user_info.json.email }}"
+    scope: file
+    file: "{{ playbook_dir }}/{{ repo }}/.git/config"
+
+##########################################################################################
+- name: Find files from templates to delete
+  find:
+    paths: "{{ playbook_dir }}/{{ repo }}"  # Replace with your directory path
+    patterns:
+      - "org_*.yml"
+  register: files_to_delete
+
+- name: Delete example files from templates
+  file:
+    path: "{{ item.path }}"
+    state: absent
+  with_items: "{{ files_to_delete.files }}"
+
+
+- name: Delete old last_job_details.txt and .yml files # This module can be deleted as soon as the files from user repo is deleted
+  file:
+    path: "{{ playbook_dir }}/{{ repo }}/{{ item }}"
+    state: absent
+  with_items:
+    - "last_job_details.yml"
+    - "last_job_details.txt"
+    - "aap_job_details.yml"
+##########################################################################################
+
+- name: include convert_content_to_lists.yml for job_templates
+  include_tasks: convert_content_to_lists.yml
+  vars:
+    content: job_templates
+  when: job_templates_names is defined and job_templates_names != ''
+
+- name: include convert_content_to_lists.yml for workflows
+  include_tasks: convert_content_to_lists.yml
+  vars:
+    content: workflows
+  when: workflows_names is defined and workflows_names != ''
+
+- name: include convert_content_to_lists.yml for projects
+  include_tasks: convert_content_to_lists.yml
+  vars:
+    content: projects
+  when: projects_names is defined and projects_names != ''
+
+- name: include convert_content_to_lists.yml for inventories
+  include_tasks: convert_content_to_lists.yml
+  vars:
+    content: inventories
+  when: inventories_names is defined and inventories_names != ''
+
+- name: include convert_content_to_lists.yml for hosts
+  include_tasks: convert_content_to_lists.yml
+  vars:
+    content: hosts
+  when: hosts_names is defined and hosts_names != ''
+
+- name: include convert_content_to_lists.yml for inventory_sources
+  include_tasks: convert_content_to_lists.yml
+  vars:
+    content: inventory_sources
+  when: inventory_sources_names is defined and inventory_sources_names != ''
+
+- name: include convert_content_to_lists.yml for schedules
+  include_tasks: convert_content_to_lists.yml
+  vars:
+    content: schedules
+  when: schedules_names is defined and schedules_names != ''
+
+- name: include convert_content_to_lists.yml for schedules
+  include_tasks: convert_content_to_lists.yml
+  vars:
+    content: notification_templates
+  when: notification_templates_names is defined and notification_templates_names != ''

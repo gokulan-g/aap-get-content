@@ -1,0 +1,5 @@
+---
+# defaults file for get_aap_api_response
+aap_api_secure_logging: true
+uri_method: GET
+aap_validate_certs: false

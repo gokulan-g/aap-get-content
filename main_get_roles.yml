@@ -1,0 +1,206 @@
+---
+- name: content extractor
+  hosts: localhost
+  vars:
+    # job_templates_names: "aap_code_promotion,"
+    # workflow_job_templates_names: "ans-cloud-main-credential-rotation-workflow"
+    # projects_names: "cac_p_code_promotion"
+    tuple_valid_content: ('job_templates','workflow_job_templates','projects')
+
+    commit_message: "added {{ user_org | lower }}_roles.yml"
+    #user_org: cac
+
+
+  pre_tasks:
+    - name: validate AAP organization name "{{ user_org }}"
+      include_tasks: validate_organization.yml
+
+    - name: include tasks from role to get github user id
+      include_role:
+        name: github
+        tasks_from: get_github_user.yml #github_user_info.json.login
+
+    - name: Extract owner and repo from HTTPS link
+      set_fact:
+        owner: "{{ github_https_link | regex_replace('https://github.com/([^/]+)/.*', '\\1') }}"
+        repo: "{{ github_https_link | regex_replace('.*/(.*).git', '\\1') }}"
+        file_path: "roles_details.yml"
+
+    - name: Set Git URL with Dynamic Credentials
+      set_fact:
+        dynamic_git_url: "{{ github_user_info.json.login }}:{{ github_PAT | mandatory }}@{{ github_https_link | replace('https://', '') }}"
+      no_log: true
+
+    - name: Clone the Git Repository {{ git_url }}
+      git:
+        repo: "{{ 'https://' ~ dynamic_git_url }}"
+        dest: "{{ playbook_dir }}/{{ repo }}/"
+        version: "{{ git_branch }}"
+        accept_hostkey: yes
+        force: yes
+        clone: yes
+        depth: 1
+        recursive: yes
+      environment:
+        GIT_ASKPASS: /bin/echo
+      no_log: true
+
+    - name: Set Git username
+      git_config:
+        name: user.name
+        value: "{{ github_user_info.json.login }}"
+        scope: file
+        file: "{{ playbook_dir }}/{{ repo }}/.git/config"
+
+    - name: Set Git email
+      git_config:
+        name: user.email
+        value: "{{ github_user_info.json.email }}"
+        scope: file
+        file: "{{ playbook_dir }}/{{ repo }}/.git/config"
+
+
+        
+    - name: include convert_content_to_lists.yml for job_templates
+      include_tasks: convert_content_to_lists.yml
+      vars:
+        content: job_templates
+      when: job_templates_names is defined and job_templates_names != ''
+
+    - name: include convert_content_to_lists.yml for workflows
+      include_tasks: convert_content_to_lists.yml
+      vars:
+        content: workflow_job_templates
+      when: workflow_job_templates_names is defined and workflow_job_templates_names != ''
+
+    - name: include convert_content_to_lists.yml for projects
+      include_tasks: convert_content_to_lists.yml
+      vars:
+        content: projects
+      when: projects_names is defined and projects_names != ''
+
+  tasks:
+    - name: include get_roles for job_templates
+      include_role:
+        name: get_roles
+      vars:
+        content: job_templates
+      when: list_of_job_templates is defined and list_of_job_templates | length > 0
+      
+    - name: include get_roles for workflows
+      include_role:
+        name: get_roles
+      vars:
+        content: workflow_job_templates
+      when: list_of_workflow_job_templates is defined and list_of_workflow_job_templates | length > 0
+
+    - name: include get_roles for projects
+      include_role:
+        name: get_roles
+      vars:
+        content: projects
+      when: list_of_projects is defined and list_of_projects | length > 0
+
+
+    - name: Prepare final content roles
+      set_fact:
+        final_content_roles:
+          job_templates_roles: "{{ list_dict_roles_job_templates if list_dict_roles_job_templates is defined else omit }}"
+          workflow_job_templates_roles: "{{ list_dict_roles_workflow_job_templates if list_dict_roles_workflow_job_templates is defined else omit }}"
+          projects_roles: "{{ list_dict_roles_projects if list_dict_roles_projects is defined else omit }}"
+
+    # - name: Find *roles*.yml files from {{ playbook_dir }}/{{ repo }}
+    #   ansible.builtin.find:
+    #     paths: "{{ playbook_dir }}/{{ repo }}"
+    #     patterns: "*roles*.yml"
+    #   register: found_roles_files
+
+    # - name: Delete *roles*.yml files from {{ playbook_dir }}/{{ repo }}
+    #   ansible.builtin.file:
+    #     path: "{{ item.path }}"
+    #     state: absent
+    #   loop: "{{ found_roles_files.files }}"
+
+    - name: Render roles_details.yml
+      template:
+        src: "{{ playbook_dir }}/roles/get_roles/templates/roles_details.yml.j2"
+        dest: "{{ playbook_dir }}/{{ repo }}/{{ user_org }}_roles.yml"
+      when: final_content_roles | length > 0 and create_append == 'create'
+
+    - name: When role needs to be appened
+      block:
+        - name: Render roles_details.yml
+          template:
+            src: "{{ playbook_dir }}/roles/get_roles/templates/roles_details.yml.j2"
+            dest: "{{ playbook_dir }}/temp_roles.yml"
+
+        - name: List directories
+          command: "ls -l {{ playbook_dir }}/{{ repo }}"
+          register: dir_list
+
+        - name: Display directory list
+          debug:
+            var: dir_list.stdout_lines
+  
+        - name: Read old YAML file content
+          include_vars:
+            file: "{{ playbook_dir }}/{{ repo }}/{{ user_org }}_roles.yml"
+            name: old_roles_yaml
+          ignore_errors: yes
+
+        - name: print the old list
+          debug:
+            var: old_roles_yaml
+          when: old_roles_yaml is defined
+
+        - name: Read new temporary YAML file content
+          include_vars:
+            file: "{{ playbook_dir }}/temp_roles.yml"
+            name: new_roles_yaml
+
+        - name: print the newly fetched list
+          debug:
+            var: new_roles_yaml
+
+        - name: Compare old_job_template_yaml with new_temp_job_template_yaml
+          set_fact:
+            list_final_content_roles: "{{ (new_roles_yaml.controller_roles) | union(old_roles_yaml.controller_roles ) }}"
+          when: old_roles_yaml is defined and old_roles_yaml.controller_roles is defined
+
+        - name: Assign the new job template list
+          set_fact:
+            list_final_content_roles: "{{ new_roles_yaml.controller_roles }}"
+          when: old_roles_yaml is not defined and old_roles_yaml.controller_roles is not defined
+
+        - name: show the job template list
+          debug:
+            var: list_final_content_roles
+  
+        - name: Write job_template details to YAML file
+          template:
+            src: "{{ playbook_dir }}/roles/get_roles/templates/append_roles.yml.j2"
+            dest: "{{ playbook_dir }}/{{ repo }}/{{ user_org }}_roles.yml"
+
+      when: final_content_roles | length > 0 and create_append == 'append'
+
+    - name: Add file to Git index
+      command: git add .
+      args:
+        chdir: "{{ playbook_dir }}/{{ repo }}"
+      
+    - name: Commit changes
+      command: git commit -m "{{ commit_message }}"
+      args:
+        chdir: "{{ playbook_dir }}/{{ repo }}"
+      
+    - name: Push changes to GitHub
+      command: git push
+      args:
+        chdir: "{{ playbook_dir }}/{{ repo }}"
+
+
+    - name: print the final content roles
+      debug:
+        var: final_content_roles
+
+    

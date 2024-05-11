@@ -1,0 +1,9 @@
+---
+# defaults file for get_schedules
+aap_content_secure_logging: True
+aap_validate_certs: False
+uri_method: GET
+
+schedule_list: []
+list_temp_api_response: []
+generate_yml_file: True

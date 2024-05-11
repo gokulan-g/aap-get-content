@@ -1,0 +1,47 @@
+---
+# tasks file for get_organizations
+- name: Initialize variables
+  set_fact:
+    organization_details: []
+    next_page_url: "/api/v2/organizations/"
+
+- name: Fetch organization details from Ansible Tower API
+  uri:
+    url: "https://{{ aap_hostname | mandatory }}{{ next_page_url }}"
+    return_content: yes
+    user: "{{ aap_username | mandatory }}"
+    password: "{{ aap_password | mandatory }}"
+    force_basic_auth: yes
+    validate_certs: "{{ aap_validate_certs | default(false) }}"
+    method: "{{ uri_method | default('GET') }}"
+  register: api_response
+  until: api_response.status == 200 # Retry until HTTP status 200
+  retries: 5 # Maximum number of retries
+  delay: 10 # Delay in seconds between retries
+  no_log: true
+
+- name: Add fetched organization details to the list
+  set_fact:
+    organization_details: "{{ organization_details + api_response.json.results }}"
+
+- name: Check if there are more pages to fetch
+  set_fact:
+    next_page_url: "{{ api_response.json.next }}"
+  when: api_response.json.next is defined and api_response.json.next is not none
+
+- name: Fetch additional pages
+  include_tasks: fetch_organization_details.yml
+  when: next_page_url is defined and next_page_url is not none
+
+# - name: Write organization details to YAML file
+#   copy:
+#     content: |
+#       total_organizations: {{ organization_details | length }}
+#       {% for org in organization_details %}
+#       - name: "{{ org.name }}"
+#         id: "{{ org.id }}"
+#         description: "{{ org.description | default('') }}"
+#         max_hosts: "{{ org.max_hosts | default('') }}"
+#       {% endfor %}
+#     dest: organization_details.yml
+

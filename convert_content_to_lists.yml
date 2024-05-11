@@ -1,0 +1,8 @@
+- name: Convert received repo_name into lists
+  set_fact:
+    list_of_{{ content }}: "{{ lookup('vars', content ~ '_names') | split(',') | map('trim') | reject('match', '^$') }}"
+- debug:
+    msg: "{{ content }}_names"
+
+- debug:
+    var: list_of_{{ content }}

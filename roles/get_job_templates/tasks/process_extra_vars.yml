@@ -1,0 +1,12 @@
+- name: copy individual content details to seperate variable and init extra_vars_dict
+  set_fact:
+    temp_content: "{{ item }}"
+
+- name: Add processed extra_vars back to old_job_template_yaml
+  set_fact:
+    temp_content: "{{ temp_content | combine({'extra_vars': temp_content.extra_vars | replace_unsafe }) }}"
+  when: item.extra_vars is defined and item.extra_vars | length > 0
+
+- name: add process content to list_temp_content
+  set_fact:
+    list_temp_content: "{{ list_temp_content | default([]) + [temp_content] }}"

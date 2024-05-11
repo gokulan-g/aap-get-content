@@ -1,0 +1,22 @@
+- name: init an empty dict
+  set_fact:
+    temp_item: {}
+
+- name: Assign item to temp_item
+  set_fact:
+    temp_item: "{{ item }}"
+
+- name: modify the variables of inventory
+  block:
+    - name: convert to variables from string to dictionary and process variables
+      set_fact:
+        variables: "{{ item.variables | from_yaml | recursive_modify }}"
+
+    - name: assign the modified inventory variables to temp_item
+      set_fact:
+        temp_item: "{{ temp_item | combine({'variables': variables}) }}"
+  when: item.variables is defined and item.variables != '' and item.variables != '---'
+
+- name: Add individual inventory details to inventory_list
+  set_fact:
+    inventory_list: "{{ inventory_list + [temp_item] }}"

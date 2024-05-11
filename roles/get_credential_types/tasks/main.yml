@@ -1,0 +1,107 @@
+---
+# tasks file for get_credential_types
+- name: init list_temp_api_response
+  set_fact:
+    list_temp_api_response: []
+    
+- block:
+    - name: include get_individual_credential_type.yml for credential_types
+      include_tasks: get_individual_credential_type.yml
+      loop: "{{ list_of_credential_types }}"
+
+    - name: show results
+      debug:
+        var: list_temp_api_response
+
+    - name: set list_temp_api_response back to list_api_reponse
+      set_fact:
+        list_api_response: "{{ list_temp_api_response }}"
+  when: "'all' not in list_of_credential_types"
+
+- block:
+    - name: set api to get all the credential_type details
+      set_fact:
+        api: /api/v2/credential_types/
+  
+    - name: include get_aap_api_reponse role to fetch api details
+      include_role: 
+        name: get_aap_api_response
+  when: "'all' in list_of_credential_types"
+
+- name: assign the list_api_response to list_api_details_credential_types
+  set_fact:
+    list_api_details_credential_types: "{{ list_api_response }}"
+
+- debug:
+    var: list_api_details_credential_types | length
+
+- name: Get survey variables for credential_types
+  include_tasks: extract_credential_type_details.yml
+  loop: "{{ list_api_details_credential_types }}"
+
+- name: print invalid credential_type names
+  debug:
+    var: list_invalid_credential_types
+  when: list_invalid_credential_types is defined and list_invalid_credential_types | length > 0
+
+- name: Write credential_type details to YAML file
+  template:
+    src: credential_type_details.yml.j2
+    dest: "{{ playbook_dir }}/{{ repo }}/credential_types.yml"
+  when: (generate_yml_file and credential_type_list) | length > 0 and (append_or_create == 'create')
+
+
+# - name: Append credential_type details to YAML file
+#   block:
+#     - name: Append credential_type details to YAML file
+#       template:
+#         src: credential_type_details.yml.j2
+#         dest: "{{ playbook_dir }}/temp_credential_type_details.yml"
+
+#     - name: Read old YAML file content
+#       include_vars:
+#         file: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_credential_type_details.yml"
+#         name: old_credential_type_yaml
+#       ignore_errors: true
+
+#     - name: print the old list
+#       debug:
+#         var: old_credential_type_yaml
+#       when: old_credential_type_yaml is defined
+
+#     - name: Read new temporary YAML file content
+#       include_vars:
+#         file: "{{ playbook_dir }}/temp_credential_type_details.yml"
+#         name: new_temp_credential_type_yaml
+
+#     - name: print the newly fetched list
+#       debug:
+#         var: new_temp_credential_type_yaml
+
+#     - name: Compare old_credential_type_yaml with new_temp_credential_type_yaml
+#       set_fact:
+#         updated_credential_type_yaml: "{{ (new_temp_credential_type_yaml.controller_credential_types) | union(old_credential_type_yaml.controller_credential_types ) | unique(attribute='name') }}"
+#       when: old_credential_type_yaml is defined and old_credential_type_yaml.controller_credential_types is defined
+
+#     - name: Assign the updated credential_type list
+#       set_fact:
+#         credential_type_list: "{{ updated_credential_type_yaml }}"
+#       when: old_credential_type_yaml is defined and old_credential_type_yaml.controller_credential_types is defined
+
+#     - name: Assign the new credential_type list
+#       set_fact:
+#         credential_type_list: "{{ new_temp_credential_type_yaml.controller_credential_types }}"
+#       when: old_credential_type_yaml is not defined and old_credential_type_yaml.controller_credential_types is not defined
+
+#     - name: show the credential_type list
+#       debug:
+#         var: credential_type_list
+  
+#     - name: Write credential_type details to YAML file
+#       template:
+#         src: credential_type_details.yml.j2
+#         dest: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_credential_type_details.yml"
+
+#   when: (generate_yml_file and credential_type_list) | length > 0 and (append_or_create == 'append')  
+
+

@@ -1,0 +1,14 @@
+---
+- name: List Pull Requests
+  uri:
+    url: "https://api.github.com/repos/{{ repo_owner }}/{{ repo_name }}/pulls"
+    method: GET
+    validate_certs: "{{ github_validate_certs | default(false) }}"
+    headers:
+      Accept: "application/vnd.github.v3+json"
+      Authorization: "token {{ github_PAT }}"
+  register: list_pull_requests
+  loop: "{{ list_repo_name }}"
+  loop_control:
+    loop_var: repo_name
+  no_log: true

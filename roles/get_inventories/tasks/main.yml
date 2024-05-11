@@ -1,0 +1,121 @@
+---
+# tasks file for get_inventories
+- name: init list_temp_api_response
+  set_fact:
+    list_temp_api_response: []
+    
+- block:
+    - name: include get_individual_inventory.yml for inventories
+      include_tasks: get_individual_inventory.yml
+      loop: "{{ list_of_inventories }}"
+
+    - name: show results
+      debug:
+        var: list_temp_api_response
+
+    - name: set list_temp_api_response back to list_api_reponse
+      set_fact:
+        list_api_response: "{{ list_temp_api_response }}"
+  when: "'all' not in list_of_inventories"
+
+- block:
+    - name: set api to get all the inventory details from the organization
+      set_fact:
+        api: /api/v2/organizations/?name={{ user_org | urlencode }}
+  
+    - name: include get_aap_api_reponse role to fetch api details
+      include_role: 
+        name: get_aap_api_response
+
+    - debug:
+        var:  list_api_response
+
+    - name: set api to get all the inventory details
+      set_fact:
+        api: "{{ list_api_response[0].related.inventories }}"
+  
+    - name: include get_aap_api_reponse role to fetch api details
+      include_role: 
+        name: get_aap_api_response
+  when: "'all' in list_of_inventories"
+
+- name: assign the list_api_response to list_api_details_inventories
+  set_fact:
+    list_api_details_inventories: "{{ list_api_response }}"
+
+- debug:
+    var: list_api_details_inventories | length
+
+- name: Get survey variables for inventories
+  include_tasks: extract_inventory_details.yml
+  loop: "{{ list_api_details_inventories }}"
+
+- name: print invalid inventory names
+  debug:
+    var: list_invalid_inventories
+  when: list_invalid_inventories is defined and list_invalid_inventories | length > 0
+
+- name: Write inventory details to YAML file
+  template:
+    src: inventory_details.yml.j2
+    dest: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_inventory_details.yml"
+  when: (generate_yml_file and inventory_list) | length > 0 and (append_or_create == 'create')
+
+
+- name: Append inventory details to YAML file
+  block:
+    - name: Append inventory details to YAML file
+      template:
+        src: inventory_details.yml.j2
+        dest: "{{ playbook_dir }}/temp_inventory_details.yml"
+
+    - name: Read old YAML file content
+      include_vars:
+        file: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_inventory_details.yml"
+        name: old_inventory_yaml
+      ignore_errors: true
+#########################################################################
+    # - name: Process inventory variables in old content
+    #   include_tasks: process_inventory_variables.yml
+    #   loop: "{{ old_inventory_yaml.controller_inventories }}"
+    #   when: old_inventory_yaml is defined and old_inventory_yaml.controller_inventories is defined
+
+    - name: print the old list
+      debug:
+        var: old_inventory_yaml
+      when: old_inventory_yaml is defined
+
+    - name: Read new temporary YAML file content
+      include_vars:
+        file: "{{ playbook_dir }}/temp_inventory_details.yml"
+        name: new_temp_inventory_yaml
+
+    - name: print the newly fetched list
+      debug:
+        var: new_temp_inventory_yaml
+
+    - name: Compare old_inventory_yaml with new_temp_inventory_yaml
+      set_fact:
+        updated_inventory_yaml: "{{ (new_temp_inventory_yaml.controller_inventories) | union(old_inventory_yaml.controller_inventories ) | unique(attribute='name') }}"
+      when: old_inventory_yaml is defined and old_inventory_yaml.controller_inventories is defined
+
+    - name: Assign the updated inventory list
+      set_fact:
+        inventory_list: "{{ updated_inventory_yaml }}"
+      when: old_inventory_yaml is defined and old_inventory_yaml.controller_inventories is defined
+
+    - name: Assign the new inventory list
+      set_fact:
+        inventory_list: "{{ new_temp_inventory_yaml.controller_inventories }}"
+      when: old_inventory_yaml is not defined and old_inventory_yaml.controller_inventories is not defined
+
+    - name: show the inventory list
+      debug:
+        var: inventory_list
+  
+    - name: Write inventory details to YAML file
+      template:
+        src: append_inventories.yml.j2
+        dest: "{{ playbook_dir }}/{{ repo }}/{{ user_org | lower }}_inventory_details.yml"
+
+  when: (generate_yml_file and inventory_list) | length > 0 and (append_or_create == 'append')

@@ -1,0 +1,29 @@
+---
+- name: Fetch additional pages
+  uri:
+    url: "https://{{ aap_hostname | mandatory }}{{ next_page_url }}"
+    user: "{{ aap_username | mandatory }}"
+    password: "{{ aap_password | mandatory }}"
+    method: GET
+    force_basic_auth: yes
+    validate_certs: "{{ aap_validate_certs | default(false) }}"
+    return_content: yes
+  register: next_page_response
+  retries: 3  # Number of retry attempts
+  delay: 5    # Delay between retry attempts (in seconds)
+  no_log: true
+
+- name: Add fetched organization details from additional pages to the list
+  set_fact:
+    organization_details: "{{ organization_details + next_page_response.json.results }}"
+  when: next_page_response.json is defined and next_page_response.json.results
+
+- name: Check if there are more pages to fetch
+  set_fact:
+    next_page_url: "{{ next_page_response.json.next }}"
+  when: next_page_response.json is defined and next_page_response.json.next is defined and next_page_response.json.next is not none
+
+- name: include fetch_organization_details.yml
+  include_tasks: fetch_organization_details.yml
+  when: next_page_response.json.next is defined and next_page_response.json.next is not none and next_page_response.json.next|lower != 'null'
+

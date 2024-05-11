@@ -1,0 +1,17 @@
+- name: set the api value to /api/v2/job_templates
+  set_fact:
+    api: /api/v2/job_templates/?name={{ item | urlencode }}
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: assign retried data list_api_response to a temporary list "list_temp_api_response"
+  set_fact:
+    list_temp_api_response: "{{ list_temp_api_response | default([]) + list_api_response }}"
+  when: list_api_response | length > 0
+
+- name: If API returned no information mark the content as invalid
+  set_fact:
+    list_invalid_job_templates: "{{ list_invalid_job_templates | default([]) + [item] }}"
+  when: list_api_response | length == 0

@@ -1,0 +1,3 @@
+- name: Add individual host details to host_list
+  set_fact:
+    host_list: "{{ host_list + [item] }}"

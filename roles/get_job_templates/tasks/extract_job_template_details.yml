@@ -1,0 +1,179 @@
+- name: init list_api_response
+  set_fact:
+    list_api_response: []
+
+# - block:
+- name: Get job template details into dict
+  set_fact:
+    job_template_dict:
+      name: "{{ item.name }}"
+      playbook: "{{ item.playbook }}"
+      description: "{{ item.description | default('') }}"
+      organization: "{{ item.summary_fields.organization.name }}"
+      job_type: "{{ item.job_type }}"
+      inventory: "{{ item.summary_fields.inventory.name | default('') }}"
+      project: "{{ item.summary_fields.project.name | default('') }}"
+      execution_environment: "{{ item.summary_fields.execution_environment.name | default(omit) }}"
+      forks: "{{ item.forks }}"
+      limit: "{{ item.limit }}"
+      verbosity: "{{ item.verbosity }}"
+      # extra_vars: "{{ item.extra_vars }}"
+      job_tags: "{{ item.job_tags }}"
+      credentials: "{{ item.summary_fields.credentials }}" # if item.summary_fields.credentials is defined and item.summary_fields.credentials | length > 0 else [] }}"
+      force_handlers: "{{ item.force_handlers }}"
+      skip_tags: "{{ item.skip_tags }}"
+      start_at_task: "{{ item.start_at_task }}"
+      diff_mode: "{{ item.diff_mode }}"
+      use_fact_cache: "{{ item.use_fact_cache }}"
+      host_config_key: "{{ item.host_config_key }}"
+      ask_scm_branch_on_launch: "{{ item.ask_scm_branch_on_launch }}"
+      ask_diff_mode_on_launch: "{{ item.ask_diff_mode_on_launch }}"
+      ask_variables_on_launch: "{{ item.ask_variables_on_launch }}"
+      ask_limit_on_launch: "{{ item.ask_limit_on_launch }}"
+      ask_tags_on_launch: "{{ item.ask_tags_on_launch }}"
+      ask_skip_tags_on_launch: "{{ item.ask_skip_tags_on_launch }}"
+      ask_job_type_on_launch: "{{ item.ask_job_type_on_launch }}"
+      ask_verbosity_on_launch: "{{ item.ask_verbosity_on_launch }}"
+      ask_inventory_on_launch: "{{ item.ask_inventory_on_launch }}"
+      ask_credential_on_launch: "{{ item.ask_credential_on_launch }}"
+      ask_execution_environment_on_launch: "{{ item.ask_execution_environment_on_launch | default('') }}"
+      ask_forks_on_launch: "{{ item.ask_forks_on_launch | default('') }}"
+      ask_instance_groups_on_launch: "{{ item.ask_instance_groups_on_launch | default('') }}"
+      ask_job_slice_count_on_launch: "{{ item.ask_job_slice_count_on_launch | default('') }}"
+      ask_labels_on_launch: "{{ item.ask_labels_on_launch  | default('') }}"
+      ask_timeout_on_launch: "{{ item.ask_timeout_on_launch  | default('') }}"
+      prevent_instance_group_fallback: "{{ item.prevent_instance_group_fallback | default('') }}"
+      survey_enabled: "{{ item.survey_enabled }}"
+      become_enabled: "{{ item.become_enabled }}"
+      allow_simultaneous: "{{ item.allow_simultaneous }}"
+      timeout: "{{ item.timeout }}"
+      #instance_groups: # list
+      job_slice_count: "{{ item.job_slice_count }}"
+      webhook_service: "{{ item.webhook_service }}"
+      webhook_credential: "{{ item.webhook_credential }}"
+      scm_branch: "{{ item.scm_branch }}"
+      labels: "{{ item.summary_fields.labels.results }}"
+
+#############################################################################################################
+
+#############################################################################################################
+
+- name: print type
+  debug:
+    var: item.extra_vars | type_debug
+
+- name: Add retrieved api content {{ api }} to job_template_dict
+  set_fact:
+    job_template_dict: "{{ job_template_dict | combine({'extra_vars' : item.extra_vars | from_yaml | recursive_modify }) }}"
+  when: item.extra_vars is defined and item.extra_vars != '' and item.extra_vars != '---'
+
+- name: print extra_vars
+  debug:
+    var: job_template_dict.extra_vars
+
+- pause:
+    seconds: 10 
+#############################################################################################################
+
+- name: Init the job_template_attributes to empty list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_started }}
+  set_fact:
+    api: "{{ item.related.notification_templates_started }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+
+
+- name: Add retrieved api content {{ api }} to job_template_dict
+  set_fact:
+    job_template_dict: "{{ job_template_dict | combine({'notification_templates_started' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+#################################################################################
+
+- name: Init the job_template_attributes to empty list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_success }}
+  set_fact:
+    api: "{{ item.related.notification_templates_success }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to job_template_dict
+  set_fact:
+    job_template_dict: "{{ job_template_dict | combine({'notification_templates_success' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+######################################################################################
+
+- name: Init the job_template_attributes to empty list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_error }}
+  set_fact:
+    api: "{{ item.related.notification_templates_error }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to job_template_dict
+  set_fact:
+    job_template_dict: "{{ job_template_dict | combine({'notification_templates_error' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+########################################################################################
+
+- name: Set the api value to {{ item.related.survey_spec }}
+  set_fact:
+    api: "{{ item.related.survey_spec }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: doing debug
+  debug:
+    var: list_api_response
+
+- name: Add retrieved api content {{ api }} to job_template_dict
+  set_fact:
+    job_template_dict: "{{ job_template_dict | combine({'survey_spec' : list_api_response}) }}"
+  when: list_api_response | length > 0
+
+########################################################################################
+
+
+- name: Add individual job template details dictionary to list
+  set_fact:
+    job_template_list: "{{ job_template_list + [job_template_dict] }}"
+
+  # when: (item.summary_fields.organization.name | lower) == (user_org | lower)

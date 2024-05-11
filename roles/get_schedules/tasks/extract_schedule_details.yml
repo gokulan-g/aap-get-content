@@ -1,0 +1,3 @@
+- name: Add individual schedule details to schedule_list
+  set_fact:
+    schedule_list: "{{ schedule_list + [item] }}"

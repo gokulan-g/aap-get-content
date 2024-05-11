@@ -1,0 +1,49 @@
+# list_dict_valid_content
+
+- name: set api value and init list_api_response
+  set_fact:
+    api: "{{ item.object_roles_api }}"
+    list_api_response: []
+    permissions: {}
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: print list_api_response
+  debug:
+    var: list_api_response | length
+
+- name: copy the list_api_response into a variable
+  set_fact:
+    temp_list_api_received: "{{ list_api_response }}"
+  when: list_api_response | length > 0
+
+- name: Set teams and users roles api into a dict
+  set_fact:
+    dict_{{ content }}_roles: "{{ { (content + '_id'): item.content_id, (content + '_name'): item.content_name, (content + '_type'): item.content_type } }}"
+
+- debug:
+    var: dict_{{ content }}_roles
+
+- name: get teams and users permission details from api
+  include_tasks: get_teams_and_users_permission_from_api.yml
+  loop: "{{ list_api_response }}"
+  when: list_api_response | length > 0
+
+
+- name: show captured permissions
+  debug:
+    var: permissions
+
+- name: set {{ content }} details, users and teams permissions into a list of dict
+  set_fact:
+    list_dict_roles_{{ content }}: "{{ lookup('vars', 'list_dict_roles_' ~ content, default=[]) | default([]) + [{(content + '_id'): item.content_id, (content + '_name'): item.content_name, 'content_type': item.content_type, 'permissions': permissions}] }}"
+
+- name: print list_dict_roles_{{ content }}
+  debug:
+    var: list_dict_roles_{{ content }}
+      
+    
+    
+  

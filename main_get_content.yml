@@ -1,0 +1,91 @@
+---
+- name: content extractor
+  hosts: localhost
+  vars:
+    # job_templates_names: "aap_code_promotion,aap-get-roles,aap-get_roles"
+    # aap_hostname: aap.example.com
+    # aap_username: 
+    # aap_password: 
+    # # workflows_names: "ans-cloud-main-credential-rotation-workflow"
+    # # projects_names: "cac_p_code_promotion"
+    # github_PAT:
+    # github_https_link: git repo
+    # user_org: configascode
+
+    commit_message: "added content files"
+
+
+  pre_tasks:
+    - name: validate user input
+      include_tasks: validate_user_input.yml
+
+  tasks:
+    - name: include get_inventories role
+      include_role:
+        name: get_inventories
+      when: (list_of_inventories is defined) and (list_of_inventories | length > 0)
+
+    - name: include get_hosts role
+      include_role:
+        name: get_hosts
+      when: (list_of_hosts is defined) and (list_of_hosts | length > 0)
+
+    - name: include get_projects role
+      include_role:
+        name: get_projects
+      when: (list_of_projects is defined) and (list_of_projects | length > 0)
+
+    - name: include get_inventory_sources role
+      include_role:
+        name: get_inventory_sources
+      when: (list_of_inventory_sources is defined) and (list_of_inventory_sources | length > 0)
+
+    - name: include get_job_templates role
+      include_role:
+        name: get_job_templates
+      when: (list_of_job_templates is defined) and (list_of_job_templates | length > 0)
+
+    - name: include get_workflows role
+      include_role:
+        name: get_workflows
+      when: (list_of_workflows is defined) and (list_of_workflows | length > 0)
+
+    - name: include get_schedules role
+      include_role:
+        name: get_schedules
+      when: (list_of_schedules is defined) and (list_of_schedules | length > 0)
+
+    - name: include get_notification_templates role
+      include_role:
+        name: get_notification_templates
+      when: (list_of_notification_templates is defined) and (list_of_notification_templates | length > 0)
+
+    - name: Create a file with variable content
+      copy:
+        content: |
+          ---
+          user_input:
+            ansible_automation_platform: https://{{ aap_hostname }}
+            user_isid: {{ aap_username }}
+            aap_organization: {{ user_org | lower }}
+            git_username: {{ github_user_info.json.login }}
+            git_repo: {{ github_https_link }}
+            git_branch: {{ git_branch }}
+            aap_job_id: {{ tower_job_id }}
+        dest: "{{ playbook_dir }}/{{ repo }}/aap_job_details.yml"
+
+  post_tasks:
+    - name: Add file to Git index
+      command: git add .
+      args:
+        chdir: "{{ playbook_dir }}/{{ repo }}"
+      
+    - name: Commit changes
+      command: git commit -m "{{ commit_message }}"
+      args:
+        chdir: "{{ playbook_dir }}/{{ repo }}"
+      
+    - name: Push changes to GitHub
+      command: git push
+      args:
+        chdir: "{{ playbook_dir }}/{{ repo }}"

@@ -1,0 +1,58 @@
+
+- name: get teams permission for {{ content }} {{ 'dict_' + content + '_roles.' + content + '_name' }}
+  block:
+    - name: set api value and init list_api_response
+      set_fact:
+        api: "{{ item.related.teams }}"
+        list_api_response: []
+        list_teams: []
+
+    - name: include get_aap_api_reponse role to fetch api details
+      include_role: 
+        name: get_aap_api_response
+
+    - name: print list_api_response
+      debug:
+        var: list_api_response
+
+    - name: copy the list_api_response to list_api_response_teams
+      set_fact:
+        list_api_response_teams: "{{ list_api_response }}"
+
+    - name: get list of teams
+      set_fact:
+        list_teams: "{{ list_teams | default([]) + [item.name] }}"
+      loop: "{{ list_api_response }}"
+
+
+- name: get users permission for {{ content }}  {{ 'dict_' + content + '_roles.' + content + '_name' }}
+  block:
+    - name: set api value and init list_api_response
+      set_fact:
+        api: "{{ item.related.users }}"
+        list_api_response: []
+        list_users: []
+
+    - name: include get_aap_api_reponse role to fetch api details
+      include_role: 
+        name: get_aap_api_response
+
+    - name: print list_api_response
+      debug:
+        var: list_api_response
+
+    - name: get list of users
+      set_fact:
+        list_users: "{{ list_users | default([]) + [item.username] }}"
+      loop: "{{ list_api_response }}"
+
+
+
+- name: set dict of permissions
+  set_fact:
+    permissions: "{{ permissions | default({}) | combine({ item.name: captured_permission }) }}"
+  vars:
+    captured_permission:
+      teams: "{{ list_teams }}"
+      users: "{{ list_users }}"
+

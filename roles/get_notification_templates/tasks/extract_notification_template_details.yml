@@ -1,0 +1,3 @@
+- name: Add individual notification_template details to notification_template_list
+  set_fact:
+    notification_template_list: "{{ notification_template_list + [item] }}"

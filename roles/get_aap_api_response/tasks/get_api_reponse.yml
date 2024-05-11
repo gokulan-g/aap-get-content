@@ -1,0 +1,34 @@
+---
+- name: Get AAP API reponse
+  ansible.builtin.uri:
+    url: "https://{{ aap_hostname | mandatory }}{{ api | mandatory}}"
+    return_content: yes
+    user: "{{ aap_username | mandatory }}"
+    password: "{{ aap_password | mandatory }}"
+    force_basic_auth: yes
+    validate_certs: "{{ aap_validate_certs }}"
+    method: "{{ uri_method }}"
+  register: api_response
+  until: api_response.status == 200 # Retry until HTTP status 200
+  retries: 5 # Maximum number of retries
+  delay: 10 # Delay in seconds between retries
+  no_log: "{{ aap_api_secure_logging }}"
+
+
+- name: Add received api details from additional pages to the list_api_response
+  set_fact:
+    list_api_response: "{{ list_api_response | default([]) + api_response.json.results }}"
+  when: api_response.json is defined and api_response.json.results
+
+- name: Check if there are more pages to get
+  set_fact:
+    api: "{{ api_response.json.next }}"
+  when: api_response.json is defined and api_response.json.next is defined and api_response.json.next is not none
+
+- name: print api value
+  debug:
+    var: api
+
+- name: include get_api_response.yml
+  include_tasks: get_api_reponse.yml
+  when: api_response.json is defined and api_response.json.next is defined and api_response.json.next is not none

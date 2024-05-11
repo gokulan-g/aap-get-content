@@ -1,0 +1,9 @@
+---
+- name : Get all available organizations
+  include_role: 
+    name: get_organizations
+
+- name: check if "{{ user_org }}" is not present in avaiable organizations
+  fail:
+    msg: "'{{ user_org }}' is not a valid organization name"
+  when: not organization_details | map(attribute='name') | map('lower') | list | select('search', '^(?i){{ user_org }}$') | list | length > 0

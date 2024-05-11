@@ -1,0 +1,10 @@
+---
+# defaults file for get_job_templates
+# aap_content_roles: []
+aap_content_secure_logging: True
+aap_validate_certs: False
+uri_method: GET
+
+job_template_list: []
+list_temp_api_response: []
+generate_yml_file: True

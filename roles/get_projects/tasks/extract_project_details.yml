@@ -1,0 +1,107 @@
+- name: Get project details
+  set_fact:
+    project_dict:
+      name: "{{ item.name }}"
+      description: "{{ item.description | default('') }}"
+      organization: "{{ item.summary_fields.organization.name | default('') }}"
+      scm_type: "{{  item.scm_type | default(omit) }}"
+      scm_url: "{{ item.scm_url | default(omit) }}"
+      #default_environment: {{ item.default_environment | default(omit) }}
+      local_path: "{{ item.local_path | default(omit) }}"
+      scm_branch: "{{ item.scm_branch | default(omit) }}"
+      scm_refspec: "{{ item.scm_refspec | default(omit) }}"
+      credential: "{{ item.summary_fields.credential.name | default(omit) }}"
+      #signature_validation_credential: 
+      scm_clean: "{{ item.scm_clean | default(omit) }}"
+      scm_delete_on_update: "{{ item.scm_delete_on_update | default(omit) }}"
+      #scm_track_submodules: 
+      scm_update_on_launch: "{{ item.scm_update_on_launch | default(omit) }}"
+      scm_update_cache_timeout: "{{ item.scm_update_cache_timeout | default(omit) }}"
+      allow_override: "{{ item.allow_override | default(omit) }}"
+      timeout: "{{ item.timeout | default(omit) }}"
+      custom_virtualenv: "{{ item.custom_virtualenv | default(null) }}"
+      # wait:
+      # update_project:
+      # interval:
+
+#############################################################################################################
+
+- name: Reset the project_attributes to empty list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value to {{ item.related.notification_templates_started }}
+  set_fact:
+     api: "{{ item.related.notification_templates_started }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to project_dict
+  set_fact:
+    project_dict: "{{ project_dict | combine({'notification_templates_started' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+#################################################################################
+
+- name: Reset the project_attributes to empty list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_started }}
+  set_fact:
+     api: "{{ item.related.notification_templates_success }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to project_dict
+  set_fact:
+    project_dict: "{{ project_dict | combine({'notification_templates_success' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+######################################################################################
+
+- name: Reset the project_attributes to empty list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_started }}
+  set_fact:
+     api: "{{ item.related.notification_templates_error }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to project_dict
+  set_fact:
+    project_dict: "{{ project_dict | combine({'notification_templates_error' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+########################################################################################
+
+
+- name: Add individual project details dictionary to list
+  set_fact:
+    project_list: "{{ project_list + [project_dict] }}"

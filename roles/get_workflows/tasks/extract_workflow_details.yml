@@ -1,0 +1,163 @@
+- name: init list_api_response
+  set_fact:
+    list_api_response: []
+
+- name: Get workflow job template details into dict
+  set_fact:
+    workflow_dict:
+      name: "{{ item.name }}"
+      description: "{{ item.description | default('') }}"
+      survey_enabled: "{{ item.survey_enabled }}"
+      allow_simultaneous: "{{ item.allow_simultaneous }}"
+      organization: "{{ item.summary_fields.organization.name | default('') }}"
+      inventory: "{{ item.summary_fields.inventory.name | default('') }}"
+      project: "{{ item.summary_fields.project.name | default('') }}"
+      limit: "{{ item.limit }}"
+      ask_variables_on_launch: "{{ item.ask_variables_on_launch }}"
+      ask_scm_branch_on_launch: "{{ item.ask_scm_branch_on_launch }}"
+      ask_limit_on_launch: "{{ item.ask_limit_on_launch }}"
+      ask_inventory_on_launch: "{{ item.ask_inventory_on_launch }}"
+      webhook_service: "{{ item.webhook_service }}"
+      webhook_credential: "{{ item.webhook_credential }}"
+      extra_vars: "{{ item.extra_vars }}"
+      scm_branch: "{{ item.scm_branch }}"
+
+#############################################################################################################
+
+- name: Set the api value {{ item.related.workflow_nodes }}
+  set_fact:
+     api: "{{ item.related.workflow_nodes }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Add retrieved api content {{ api }} to workflow_dict
+  set_fact:
+    workflow_dict: "{{ workflow_dict | combine({'workflow_nodes_list' : list_api_response}) }}"
+  when: list_api_response | length > 0
+
+#################################################################################
+
+#############################################################################################################
+
+- name: Init notification_names_list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_started }}
+  set_fact:
+     api: "{{ item.related.notification_templates_started }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to workflow_dict
+  set_fact:
+    workflow_dict: "{{ workflow_dict | combine({'notification_templates_started' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+#################################################################################
+#############################################################################################################
+
+- name: Init notification_names_list list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_success }}
+  set_fact:
+     api: "{{ item.related.notification_templates_success }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to workflow_dict
+  set_fact:
+    workflow_dict: "{{ workflow_dict | combine({'notification_templates_success' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+#################################################################################
+#############################################################################################################
+
+- name: Init notification_names_list list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_error }}
+  set_fact:
+     api: "{{ item.related.notification_templates_error }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to workflow_dict
+  set_fact:
+    workflow_dict: "{{ workflow_dict | combine({'notification_templates_error' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+#################################################################################
+#############################################################################################################
+
+- name: Init notification_names_list list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_approvals }}
+  set_fact:
+     api: "{{ item.related.notification_templates_approvals }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to workflow_dict
+  set_fact:
+    workflow_dict: "{{ workflow_dict | combine({'notification_templates_approvals' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+#################################################################################
+#############################################################################################################
+
+- name: Set the api value
+  set_fact:
+     api: "{{ item.related.survey_spec }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Add retrieved api content {{ api }} to workflow_dict
+  set_fact:
+    workflow_dict: "{{ workflow_dict | combine({'survey_spec' : list_api_response}) }}"
+  when: list_api_response | length > 0
+
+#################################################################################
+- name: Add individual workflow details dictionary to list
+  set_fact:
+    workflow_list: "{{ workflow_list + [workflow_dict] }}"

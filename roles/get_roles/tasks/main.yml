@@ -1,0 +1,38 @@
+---
+# tasks file for get_roles
+
+- name: set the api value to /api/v2/{{ content | mandatory }}
+  set_fact:
+    api: "/api/v2/{{ content | mandatory }}/"
+
+
+- name: Fetch {{ content }} details from AAP API
+  ansible.builtin.uri:
+    url: "https://{{ aap_hostname | mandatory }}{{ api }}?name={{ content_name | mandatory | urlencode }}"
+    return_content: yes
+    user: "{{ aap_username | mandatory }}"
+    password: "{{ aap_password | mandatory }}"
+    force_basic_auth: yes
+    validate_certs: "{{ aap_validate_certs }}"
+    method: "{{ uri_method }}"
+  register: api_response
+  until: api_response.status == 200 # Retry until HTTP status 200
+  retries: 5 # Maximum number of retries
+  delay: 10 # Delay in seconds between retries
+  loop: "{{ lookup('vars', 'list_of_' ~ content, default=[]) }}"
+  loop_control:
+    loop_var: content_name
+  when: "'all' not in lookup('vars', 'list_of_' ~ content, default=[])"
+  no_log: "{{ aap_content_secure_logging }}"
+
+
+- name: validate_fetched_api_response
+  include_tasks: validate_fetched_api_response.yml
+  loop: "{{ api_response.results }}"
+  when: api_response is defined and api_response.results is defined and api_response.results | length > 0
+
+
+- name: Get roles details from api 
+  include_tasks: get_roles_from_api.yml
+  loop: "{{ lookup('vars', 'list_dict_valid_' ~ content, default=[]) }}"
+  when: lookup('vars', 'list_dict_valid_' ~ content, default=[]) | length > 0

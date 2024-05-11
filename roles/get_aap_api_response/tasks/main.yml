@@ -1,0 +1,54 @@
+---
+# tasks file for get_aap_api_response
+- name: init list_api_response
+  set_fact:
+    list_api_response: []
+
+- name: Get AAP API reponse
+  ansible.builtin.uri:
+    url: "https://{{ aap_hostname | mandatory }}{{ api | mandatory }}"
+    return_content: yes
+    user: "{{ aap_username | mandatory }}"
+    password: "{{ aap_password | mandatory }}"
+    force_basic_auth: yes
+    validate_certs: "{{ aap_validate_certs }}"
+    method: "{{ uri_method }}"
+  register: api_response
+  until: api_response.status == 200 # Retry until HTTP status 200
+  retries: 5 # Maximum number of retries
+  delay: 10 # Delay in seconds between retries
+  no_log: "{{ aap_api_secure_logging }}"
+
+- name: Add received api response to the list
+  set_fact:
+    list_api_response: "{{ list_api_response | default([]) + api_response.json.results }}"
+  when: api_response.json is defined and api_response.json.results is defined 
+
+- name: Check if there are more pages to fetch
+  set_fact:
+    api: "{{ api_response.json.next }}"
+  when: api_response.json is defined and api_response.json.next is defined and api_response.json.next is not none
+
+- name: Add the api response to list_api_response if api_response.json.results is not defined
+  set_fact:
+    list_api_response: "{{ list_api_response | combine(api_response.json) }}"
+  when: api_response.json is defined and api_response.json.results is not defined
+
+- debug:
+    var: api_response.json.next
+
+- debug:
+    var: api
+
+- name: get complete pages if api is defined
+  include_tasks: get_api_reponse.yml
+  when: api_response.json.next is defined and api_response.json.next is not none
+
+- name: print total received data from api
+  debug:
+    var: list_api_response
+
+- name: print total count of data from api
+  debug:
+    var: list_api_response | length
+

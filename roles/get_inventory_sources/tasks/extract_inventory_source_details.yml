@@ -1,0 +1,107 @@
+- name: Get inventory source details into dict
+  set_fact:
+    inventory_source_dict:
+      name: "{{ item.name }}"
+      description: "{{ item.description | default('') }}"
+      organization: "{{ item.summary_fields.organization.name }}"
+      inventory: "{{ item.summary_fields.inventory.name | default('') }}"
+      source: "{{ item.source | default(omit) }}"
+      source_path: "{{ item.source_path | default(omit) }}"
+      source_vars: "{{ item.source_vars | default(omit) }}"
+      enabled_var: "{{ item.enabled_var | default(omit) }}"
+      enabled_value: "{{ item.enabled_value | default(omit) }}"
+      host_filter: "{{ item.host_filter | default(omit) }}"
+      credential: "{{ item.summary_fields.credentials | default(omit) }}"
+      execution_environment: "{{ item.execution_environment | default(omit) }}"
+      overwrite: "{{ item.overwrite | default(omit) }}"
+      overwrite_vars: "{{ item.overwrite_vars | default(omit) }}"
+      custom_virtualenv: "{{ item.custom_virtualenv | default(omit) }}"
+      timeout: "{{ item.timeout | default(omit) }}"
+      verbosity: "{{ item.verbosity | default(omit) }}"
+      update_on_launch: "{{ item.update_on_launch | default(omit) }}"
+      update_cache_timeout: "{{ item.update_cache_timeout | default(omit) }}"
+      source_project: "{{ item.summary_fields.source_project.name | default(omit) }}"
+      scm_branch: "{{ item.scm_branch | default(omit) }}"
+
+#############################################################################################################
+
+
+
+- name: Reset the inventory_source_attributes to empty list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_started }}
+  set_fact:
+     api: "{{ item.related.notification_templates_started }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to inventory_source_dict
+  set_fact:
+    inventory_source_dict: "{{ inventory_source_dict | combine({'notification_templates_started' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+#################################################################################
+
+- name: Reset the inventory_source_attributes to empty list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value {{ item.related.notification_templates_success }}
+  set_fact:
+     api: "{{ item.related.notification_templates_success }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to inventory_source_dict
+  set_fact:
+    inventory_source_dict: "{{ inventory_source_dict | combine({'notification_templates_success' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+######################################################################################
+
+- name: Reset the inventory_source_attributes to empty list
+  set_fact:
+    notification_names_list: []
+
+- name: Set the api value
+  set_fact:
+     api: "{{ item.related.notification_templates_error }}"
+
+- name: include get_aap_api_reponse role to fetch api details
+  include_role: 
+    name: get_aap_api_response
+
+- name: Get notification name from api content {{ api }} and add to a list notification_names_list
+  set_fact:
+    notification_names_list: "{{ notification_names_list + [item.name] }}"
+  when: list_api_response | length > 0
+  loop: "{{ list_api_response }}"
+
+- name: Add retrieved api content {{ api }} to inventory_source_dict
+  set_fact:
+    inventory_source_dict: "{{ inventory_source_dict | combine({'notification_templates_error' : notification_names_list }) }}"
+  when: notification_names_list | length > 0
+
+########################################################################################
+
+- name: Add individual inventory source details dictionary to list
+  set_fact:
+    inventory_source_list: "{{ inventory_source_list + [inventory_source_dict] }}"

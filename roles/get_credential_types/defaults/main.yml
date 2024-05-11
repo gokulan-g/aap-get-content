@@ -1,0 +1,9 @@
+---
+# defaults file for get_credential_types
+aap_content_secure_logging: True
+aap_validate_certs: False
+uri_method: GET
+
+credential_type_list: []
+list_temp_api_response: []
+generate_yml_file: True

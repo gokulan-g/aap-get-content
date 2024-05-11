@@ -1,0 +1,28 @@
+---
+- name: Close the open pull request
+  uri:
+    url: "https://api.github.com/repos/{{ repo_owner }}/{{ repo.repo_name }}/pulls/{{ repo.pull_requests[0].pr_number }}/merge"
+    method: PUT
+    validate_certs: "{{ github_validate_certs | default(false) }}"
+    headers:
+      Authorization: "token {{ github_PAT }}"
+      Accept: "application/vnd.github.v3+json"
+    body_format: json
+    body:
+      merge_method: "merge"
+  register: closure_status
+  loop: "{{ list_supported_pr_received }}"
+  loop_control:
+    loop_var: repo
+  until: closure_status.status == 200
+  retries: 3
+  delay: 5
+  ignore_errors: yes
+  no_log: true
+
+
+- name: Get closure status in a list
+  set_fact:
+    list_pr_closure_status: "{{ list_pr_closure_status | default([]) + [{'repo_name': item.repo.repo_name, 'pull_request': item.repo.pull_requests,'status_code': item.status }] }}"
+  when: closure_status.results is defined and closure_status.results | length > 0
+  loop: "{{ closure_status.results }}"

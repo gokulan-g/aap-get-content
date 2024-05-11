@@ -1,0 +1,24 @@
+- name: Fetch valid content
+  block:
+    - name: Init valid content dict
+      set_fact:
+        dict_valid_{{ content }}: {}
+
+    - name: Fetch valid content into a dict
+      set_fact:
+        dict_valid_{{ content }}:
+          content_type: "{{ item.json.results[0].type }}"
+          content_name: "{{ item.content_name }}"
+          content_id: "{{ item.json.results[0].id }}"
+          object_roles_api: "{{ item.json.results[0].related.object_roles }}"
+
+    - name: Add dict_valid_content to list_dict_valid_{{ content }}
+      set_fact:
+        list_dict_valid_{{ content }}: "{{ hostvars[inventory_hostname]['list_dict_valid_' ~ content] | default([]) + [lookup('vars','dict_valid_' ~ content)] }}"
+  when: item.json.results is defined and item.json.results | length > 0
+
+
+- name: Fetch invalid {{ content }} into a list
+  set_fact:
+    list_invalid_{{ content }}: "{{ hostvars[inventory_hostname]['list_invalid_' ~ content] | default([]) + [item.content_name] }}"
+  when: item.json.results | length == 0

@@ -1,0 +1,30 @@
+- name: copy individual content details to seperate variable and init inventory_variables_dict
+  set_fact:
+    temp_content: "{{ item }}"
+
+# - name: convert extra vars into dict
+#   set_fact:
+#     temp_inventory_variables: "{{ item.variables | from_yaml }}"
+#   when: item.variables is defined and item.variables | length > 0
+
+# - name: if extra vars is --- set to empty dict
+#   set_fact:
+#     temp_inventory_variables: {}
+#   when: temp_inventory_variables == ""
+
+# - name: Check for inventory_variables variables and insert !unsafe in front of it
+#   set_fact:
+#     inventory_variables_dict: "{{ inventory_variables_dict | default({}) | combine({inventory_var_item.key: inventory_var_item.value | regex_search('({{[^}]+}})') | ternary( '{% raw %} ' + ( inventory_var_item.value | string) + ' {% endraw %}', inventory_var_item.value | string)}) }}"
+#   loop: "{{ temp_inventory_variables | dict2items }}"
+#   loop_control:
+#     loop_var: inventory_var_item
+#   when: temp_inventory_variables is defined and temp_inventory_variables | length > 0
+
+- name: Add processed inventory_variables back to old_job_template_yaml
+  set_fact:
+    temp_content: "{{ temp_content | combine({'variables': temp_content.variables | replace_unsafe }) }}"
+  when: temp_content.variables is defined and temp_content.variables | length > 0
+
+- name: add process content to list_temp_content
+  set_fact:
+    list_temp_content: "{{ list_temp_content | default([]) + [temp_content] }}"

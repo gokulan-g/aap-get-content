@@ -1,0 +1,6 @@
+---
+# defaults file for get_roles
+aap_content_roles: []
+aap_content_secure_logging: true
+aap_validate_certs: false
+uri_method: GET
